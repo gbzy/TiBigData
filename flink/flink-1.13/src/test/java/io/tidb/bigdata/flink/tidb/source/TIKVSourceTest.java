@@ -44,7 +44,7 @@ import org.junit.experimental.categories.Category;
 public class TIKVSourceTest extends FlinkTestBase {
 
   public static final String CREATE_DATAGEN_TABLE_SQL =
-      "CREATE TABLE datagen (\n" + " c1 int,\n" + " proctime as PROCTIME()\n" + ") WITH (\n"
+      "CREATE TABLE datagen (\n" + " c1 tinyint,\n" + " proctime as PROCTIME()\n" + ") WITH (\n"
           + " 'connector' = 'datagen',\n" + " 'rows-per-second'='10',\n"
           + " 'fields.c1.kind'='random',\n" + " 'fields.c1.min'='1',\n" + " 'fields.c1.max'='10',\n"
           + " 'number-of-rows'='10'\n" + ")";
@@ -108,7 +108,7 @@ public class TIKVSourceTest extends FlinkTestBase {
     tiDBCatalog.open();
     String tableName = RandomUtils.randomString();
     String createTableSql1 = String.format(
-        "CREATE TABLE `%s`.`%s` (c1 int, c2 varchar(255), PRIMARY KEY(`c1`))", DATABASE_NAME,
+        "CREATE TABLE `%s`.`%s` (c1 tinyint, c2 varchar(255), PRIMARY KEY(`c1`))", DATABASE_NAME,
         tableName);
     String insertDataSql = String.format(
         "INSERT INTO `%s`.`%s` VALUES (1,'data1'),(2,'data2'),(3,'data3'),(4,'data4')",
@@ -140,7 +140,7 @@ public class TIKVSourceTest extends FlinkTestBase {
     tiDBCatalog.open();
     String tableName = RandomUtils.randomString();
     String createTableSql1 = String.format(
-        "CREATE TABLE `%s`.`%s` (c1 int, c2 varchar(255), PRIMARY KEY(`c1`))", DATABASE_NAME,
+        "CREATE TABLE `%s`.`%s` (c1 tinyint, c2 varchar(255), PRIMARY KEY(`c1`))", DATABASE_NAME,
         tableName);
     String insertDataSql = String.format(
         "INSERT INTO `%s`.`%s` VALUES (1,'data1'),(2,'data2'),(3,'data3'),(4,'data4')",
@@ -154,9 +154,9 @@ public class TIKVSourceTest extends FlinkTestBase {
     CloseableIterator<Row> iterator = tableEnvironment.executeSql(sql).collect();
     while (iterator.hasNext()) {
       Row row = iterator.next();
-      Object c1 = row.getField(0);
+      Byte c1 = (Byte) row.getField(0);
       String c2 = String.format("data%s", c1);
-      boolean isJoin = (int) c1 <= 4;
+      boolean isJoin = c1.intValue() <= 4;
       Row row1 = Row.of(c1, row.getField(1), isJoin ? c1 : null, isJoin ? c2 : null);
       Assert.assertEquals(row, row1);
     }

@@ -112,6 +112,7 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
     LOG.info("open async jdbc client");
     String userName = options.getUsername().isPresent() ? options.getUsername().get() : "";
     String passWord = options.getPassword().isPresent() ? options.getPassword().get() : "";
+    LOG.info(options.getDbURL());
     this.pool = JDBCPool.pool(Vertx.vertx(),
         new JDBCConnectOptions()
             // H2 connection string
@@ -119,7 +120,9 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
             // username
             .setUser(userName)
             // password
-            .setPassword(passWord),
+            .setPassword(passWord)
+            //query timeout
+            .setQueryTimeout(10),
         // configure the pool
         new PoolOptions().setMaxSize(maxPoolSize)
     );
@@ -132,7 +135,10 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
     // handle the failure
     preparedQuery
         .execute(lookupKeyRowConverter.toExternal(rowData))
-        .onFailure(Throwable::printStackTrace)
+        .onFailure(t -> {
+          LOG.warn(t.getMessage());
+          result.complete(null);
+        })
         .onSuccess(rows -> {
           ArrayList<RowData> rowsList = new ArrayList<>();
           for (Row row : rows) {
