@@ -84,28 +84,26 @@ public class AsyncLookupOptions implements Serializable {
     private long cacheExpireMs = -1L;
     private boolean async = false;
 
-    public Builder setAsync(boolean async) {
-      this.async = async;
-      return this;
+    public void setAsync(boolean asyncMode) {
+      this.async=asyncMode;
     }
 
-    public Builder setMaxPoolSize(int maxPoolSize) {
+    public void setMaxPoolSize(int maxPoolSize) {
       this.maxPoolSize = maxPoolSize;
-      return this;
     }
 
-    public Builder setCacheMaxSize(long cacheMaxSize) {
+    public void setCacheMaxSize(long cacheMaxSize) {
       this.cacheMaxSize = cacheMaxSize;
-      return this;
     }
 
-    public Builder setCacheExpireMs(long cacheExpireMs) {
+    public void setCacheExpireMs(long cacheExpireMs) {
       this.cacheExpireMs = cacheExpireMs;
-      return this;
     }
 
     public AsyncLookupOptions build() {
       return new AsyncLookupOptions(async, maxPoolSize, cacheMaxSize, cacheExpireMs);
     }
+
+
   }
 }

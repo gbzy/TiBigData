@@ -126,7 +126,7 @@ public class TiDBRowConverter implements Serializable {
       case BIGINT:
         return val -> val;
       case TINYINT:
-        return val -> ((Integer) val).byteValue() ;
+        return val -> ((Integer) val).byteValue();
       case SMALLINT:
         // Converter for small type that casts value to int and then return short value,
         // since

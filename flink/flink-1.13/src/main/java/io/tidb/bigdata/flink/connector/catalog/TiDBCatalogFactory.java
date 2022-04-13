@@ -53,14 +53,15 @@ public class TiDBCatalogFactory implements CatalogFactory {
         TiDBOptions.PASSWORD,
         TiDBOptions.MAX_POOL_SIZE,
         TiDBOptions.LOOKUP_MAX_POOL_SIZE,
-        TiDBOptions.ASYNC_MODE,
+        TiDBOptions.LOOKUP_ASYNC_MODE,
         TiDBOptions.MIN_IDLE_SIZE,
         TiDBOptions.WRITE_MODE,
         TiDBOptions.REPLICA_READ,
         TiDBOptions.FILTER_PUSH_DOWN,
         TiDBOptions.DNS_SEARCH,
         TiDBOptions.SNAPSHOT_TIMESTAMP,
-        TiDBOptions.SNAPSHOT_VERSION
+        TiDBOptions.SNAPSHOT_VERSION,
+        TiDBOptions.JDBC_SOURCE_FLAG
     );
   }
   

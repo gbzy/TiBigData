@@ -18,6 +18,7 @@ package io.tidb.bigdata.flink.connector.source;
 
 import com.google.common.collect.ImmutableSet;
 import io.tidb.bigdata.tidb.ClientConfig;
+import java.time.Duration;
 import java.util.Set;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
@@ -30,6 +31,10 @@ public class TiDBOptions {
 
   private static ConfigOption<String> optional(String key, String value) {
     return ConfigOptions.key(key).stringType().defaultValue(value);
+  }
+
+  private static ConfigOption<Integer> optional(String key, int value) {
+    return ConfigOptions.key(key).intType().defaultValue(value);
   }
 
   private static ConfigOption<String> optional(String key) {
@@ -46,10 +51,42 @@ public class TiDBOptions {
 
   public static final ConfigOption<String> TABLE_NAME = required("tidb.table.name");
 
-  public static final ConfigOption<String> ASYNC_MODE = optional("tidb.lookup.async");
+  public static final ConfigOption<Boolean> LOOKUP_ASYNC_MODE = ConfigOptions
+      .key("tidb.lookup.async").booleanType().defaultValue(false);
 
-  public static final ConfigOption<String> LOOKUP_MAX_POOL_SIZE = optional("tidb.lookup.max_pool_size");
+  public static final ConfigOption<Integer> LOOKUP_MAX_POOL_SIZE = optional(
+      "tidb.lookup.max_pool_size", 4);
 
+  //jdbc options
+  public static final ConfigOption<Boolean> JDBC_SOURCE_FLAG = ConfigOptions.key(
+      "jdbc.source.flag").booleanType().defaultValue(false);
+  public static final ConfigOption<Integer> SINK_BUFFER_FLUSH_MAX_ROWS = optional(
+      "sink.buffer-flush.max-rows", 100);
+  public static final ConfigOption<Duration> SINK_BUFFER_FLUSH_INTERVAL = ConfigOptions
+      .key("sink.buffer-flush.interval").durationType().defaultValue(Duration.ofSeconds(1));
+  public static final ConfigOption<Integer> SINK_MAX_RETRIES = ConfigOptions
+      .key("sink.max-retries")
+      .intType()
+      .defaultValue(3)
+      .withDescription("the max retry times if writing records to database failed.");
+  public static final ConfigOption<Long> LOOKUP_CACHE_MAX_ROWS = ConfigOptions
+      .key("lookup.cache.max-rows")
+      .longType()
+      .defaultValue(-1L)
+      .withDescription("the max number of rows of lookup cache, over this value, "
+          + "the oldest rows will be eliminated. \"cache.max-rows\" and \"cache.ttl\" options "
+          + "must all be specified if any of them is specified. "
+          + "Cache is not enabled as default.");
+  public static final ConfigOption<Duration> LOOKUP_CACHE_TTL = ConfigOptions
+      .key("lookup.cache.ttl")
+      .durationType()
+      .defaultValue(Duration.ofSeconds(10))
+      .withDescription("the cache time to live.");
+  public static final ConfigOption<Integer> LOOKUP_MAX_RETRIES = ConfigOptions
+      .key("lookup.max-retries")
+      .intType()
+      .defaultValue(3)
+      .withDescription("the max retry times if lookup database failed.");
   public static final ConfigOption<String> MAX_POOL_SIZE = required(ClientConfig.MAX_POOL_SIZE);
 
   public static final ConfigOption<String> MIN_IDLE_SIZE = required(ClientConfig.MIN_IDLE_SIZE);

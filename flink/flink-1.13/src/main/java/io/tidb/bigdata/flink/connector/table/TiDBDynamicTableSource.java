@@ -23,10 +23,17 @@ import io.tidb.bigdata.tidb.ClientSession;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
+import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
+import org.apache.flink.connector.jdbc.split.JdbcNumericBetweenParametersProvider;
+import org.apache.flink.connector.jdbc.table.JdbcRowDataInputFormat;
+import org.apache.flink.connector.jdbc.table.JdbcRowDataInputFormat.Builder;
+import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.catalog.ResolvedCatalogTable;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.source.DynamicTableSource;
+import org.apache.flink.table.connector.source.InputFormatProvider;
 import org.apache.flink.table.connector.source.LookupTableSource;
 import org.apache.flink.table.connector.source.ScanTableSource;
 import org.apache.flink.table.connector.source.SourceProvider;
@@ -34,6 +41,8 @@ import org.apache.flink.table.connector.source.abilities.SupportsFilterPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsLimitPushDown;
 import org.apache.flink.table.connector.source.abilities.SupportsProjectionPushDown;
 import org.apache.flink.table.expressions.ResolvedExpression;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.utils.TableSchemaUtils;
 import org.apache.flink.util.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,16 +61,22 @@ public class TiDBDynamicTableSource implements ScanTableSource, LookupTableSourc
   private int[] projectedFields;
   private Integer limit;
   private Expression expression;
+  private final Boolean jdbcSourceFlag;
 
   public TiDBDynamicTableSource(ResolvedCatalogTable table,
-      ChangelogMode changelogMode, JdbcLookupOptions lookupOptions) {
-    this(table, changelogMode, new LookupTableSourceHelper(lookupOptions));
+      ChangelogMode changelogMode, Boolean jdbcSourceFlag,
+      JdbcLookupOptions lookupOptions,
+      AsyncLookupOptions asyncLookupOptions) {
+    this(table, changelogMode, jdbcSourceFlag,
+        new LookupTableSourceHelper(lookupOptions, asyncLookupOptions));
   }
 
   private TiDBDynamicTableSource(ResolvedCatalogTable table,
-      ChangelogMode changelogMode, LookupTableSourceHelper lookupTableSourceHelper) {
+      ChangelogMode changelogMode, Boolean jdbcSourceFlag,
+      LookupTableSourceHelper lookupTableSourceHelper) {
     this.table = table;
     this.changelogMode = changelogMode;
+    this.jdbcSourceFlag = jdbcSourceFlag;
     this.lookupTableSourceHelper = lookupTableSourceHelper;
   }
 
@@ -72,16 +87,48 @@ public class TiDBDynamicTableSource implements ScanTableSource, LookupTableSourc
 
   @Override
   public ScanRuntimeProvider getScanRuntimeProvider(ScanContext scanContext) {
-    /* Disable metadata as it doesn't work with projection push down at this time */
-    return SourceProvider.of(
-        new TiDBSourceBuilder(table, scanContext::createTypeInformation, null, projectedFields,
-            expression, limit).build());
+    JdbcOptions jdbcOptions = JdbcUtils.getJdbcOptions(table.getOptions());
+    if (jdbcSourceFlag) {
+      final JdbcRowDataInputFormat.Builder builder =
+          JdbcRowDataInputFormat.builder()
+              .setDrivername(jdbcOptions.getDriverName())
+              .setDBUrl(jdbcOptions.getDbURL())
+              .setUsername(jdbcOptions.getUsername().orElse(null))
+              .setPassword(jdbcOptions.getPassword().orElse(null))
+              .setAutoCommit(true);
+      //流式读取
+      builder.setFetchSize(Integer.MIN_VALUE);
+      final JdbcDialect dialect = jdbcOptions.getDialect();
+      TableSchema physicalSchema =
+          TableSchemaUtils.getPhysicalSchema(table.getSchema());
+      String query =
+          dialect.getSelectFromStatement(
+              jdbcOptions.getTableName(), physicalSchema.getFieldNames(), new String[0]);
+
+//      if (limit >= 0) {
+//        query = String.format("%s %s", query, dialect.getLimitClause(limit));
+//      }
+      builder.setQuery(query);
+      final RowType rowType = (RowType) physicalSchema.toRowDataType().getLogicalType();
+      builder.setRowConverter(dialect.getRowConverter(rowType));
+      builder.setRowDataTypeInfo(
+          scanContext.createTypeInformation(physicalSchema.toRowDataType()));
+
+      return InputFormatProvider.of(builder.build());
+    } else {
+      /* Disable metadata as it doesn't work with projection push down at this time */
+      return SourceProvider.of(
+          new TiDBSourceBuilder(table, scanContext::createTypeInformation, null, projectedFields,
+              expression, limit).build());
+    }
+
   }
 
   @Override
   public DynamicTableSource copy() {
     TiDBDynamicTableSource otherSource =
-        new TiDBDynamicTableSource(table, changelogMode, lookupTableSourceHelper);
+        new TiDBDynamicTableSource(table, changelogMode, jdbcSourceFlag,
+            lookupTableSourceHelper);
     otherSource.projectedFields = this.projectedFields;
     otherSource.filterPushDownHelper = this.filterPushDownHelper;
     return otherSource;

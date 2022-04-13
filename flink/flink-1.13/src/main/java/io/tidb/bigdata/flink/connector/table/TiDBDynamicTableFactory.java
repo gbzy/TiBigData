@@ -22,6 +22,7 @@ import static io.tidb.bigdata.flink.connector.source.TiDBOptions.WRITE_MODE;
 
 import com.google.common.collect.ImmutableSet;
 import io.tidb.bigdata.flink.connector.source.TiDBOptions;
+import io.tidb.bigdata.flink.connector.table.AsyncLookupOptions.Builder;
 import io.tidb.bigdata.tidb.ClientConfig;
 import io.tidb.bigdata.tidb.ClientSession;
 import io.tidb.bigdata.tidb.TiDBWriteMode;
@@ -31,10 +32,13 @@ import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
+import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
+import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
 import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.table.JdbcDynamicTableSink;
+import org.apache.flink.connector.jdbc.table.JdbcDynamicTableSource;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -48,47 +52,28 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
 
   public static final String IDENTIFIER = "tidb";
 
-  /**
-   * see ${@link org.apache.flink.connector.jdbc.table.JdbcDynamicTableFactory}
-   */
-  public static final ConfigOption<Integer> SINK_BUFFER_FLUSH_MAX_ROWS = ConfigOptions
-      .key("sink.buffer-flush.max-rows")
-      .intType()
-      .defaultValue(100)
-      .withDescription(
-          "the flush max size (includes all append, upsert and delete records), over this number"
-              + " of records, will flush data. The default value is 100.");
-  private static final ConfigOption<Duration> SINK_BUFFER_FLUSH_INTERVAL = ConfigOptions
-      .key("sink.buffer-flush.interval")
-      .durationType()
-      .defaultValue(Duration.ofSeconds(1))
-      .withDescription(
-          "the flush interval mills, over this time, asynchronous threads will flush data. The "
-              + "default value is 1s.");
-  public static final ConfigOption<Integer> SINK_MAX_RETRIES = ConfigOptions
-      .key("sink.max-retries")
-      .intType()
-      .defaultValue(3)
-      .withDescription("the max retry times if writing records to database failed.");
-  // look up config options
-  public static final ConfigOption<Long> LOOKUP_CACHE_MAX_ROWS = ConfigOptions
-      .key("lookup.cache.max-rows")
-      .longType()
-      .defaultValue(-1L)
-      .withDescription("the max number of rows of lookup cache, over this value, "
-          + "the oldest rows will be eliminated. \"cache.max-rows\" and \"cache.ttl\" options "
-          + "must all be specified if any of them is specified. "
-          + "Cache is not enabled as default.");
-  public static final ConfigOption<Duration> LOOKUP_CACHE_TTL = ConfigOptions
-      .key("lookup.cache.ttl")
-      .durationType()
-      .defaultValue(Duration.ofSeconds(10))
-      .withDescription("the cache time to live.");
-  public static final ConfigOption<Integer> LOOKUP_MAX_RETRIES = ConfigOptions
-      .key("lookup.max-retries")
-      .intType()
-      .defaultValue(3)
-      .withDescription("the max retry times if lookup database failed.");
+  private static AsyncLookupOptions getAsyncJdbcOptions(ReadableConfig readableConfig) {
+    Builder builder = AsyncLookupOptions.builder();
+    readableConfig.getOptional(TiDBOptions.LOOKUP_ASYNC_MODE).ifPresent(builder::setAsync);
+    readableConfig.getOptional(TiDBOptions.LOOKUP_MAX_POOL_SIZE).ifPresent(builder::setMaxPoolSize);
+    return builder.build();
+  }
+
+  private static JdbcLookupOptions getJdbcLookupOptions(ReadableConfig readableConfig) {
+    JdbcLookupOptions.Builder builder = JdbcLookupOptions.builder();
+    builder.setCacheMaxSize(readableConfig.get(TiDBOptions.LOOKUP_CACHE_MAX_ROWS));
+    builder.setMaxRetryTimes(readableConfig.get(TiDBOptions.LOOKUP_MAX_RETRIES));
+    builder.setCacheExpireMs(readableConfig.get(TiDBOptions.LOOKUP_CACHE_TTL).toMillis());
+    return builder.build();
+  }
+
+  private static JdbcExecutionOptions getExecJdbcOptions(ReadableConfig readableConfig) {
+    JdbcExecutionOptions.Builder builder = JdbcExecutionOptions.builder()
+        .withBatchIntervalMs(readableConfig.get(TiDBOptions.SINK_BUFFER_FLUSH_INTERVAL).toMillis())
+        .withBatchSize(readableConfig.get(TiDBOptions.SINK_MAX_RETRIES))
+        .withBatchSize(readableConfig.get(TiDBOptions.SINK_BUFFER_FLUSH_MAX_ROWS));
+    return builder.build();
+  }
 
   @Override
   public String factoryIdentifier() {
@@ -104,21 +89,23 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
   public DynamicTableSource createDynamicTableSource(Context context) {
     FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
     ReadableConfig config = helper.getOptions();
-    return new TiDBDynamicTableSource(context.getCatalogTable(),
-        config.getOptional(STREAMING_SOURCE).isPresent()
-            ? ChangelogMode.all() : ChangelogMode.insertOnly(),
-        new JdbcLookupOptions(
-            config.get(LOOKUP_CACHE_MAX_ROWS),
-            config.get(LOOKUP_CACHE_TTL).toMillis(),
-            config.get(LOOKUP_MAX_RETRIES)));
+    helper.validate();
+      return new TiDBDynamicTableSource(context.getCatalogTable(),
+          config.getOptional(STREAMING_SOURCE).isPresent()
+              ? ChangelogMode.all() : ChangelogMode.insertOnly(), config.get(TiDBOptions.JDBC_SOURCE_FLAG),
+           getJdbcLookupOptions(config), getAsyncJdbcOptions(config));
+
+
   }
 
   @Override
   public Set<ConfigOption<?>> optionalOptions() {
     return TiDBOptions.withMoreOptionalOptions(
-        SINK_BUFFER_FLUSH_INTERVAL,
-        SINK_BUFFER_FLUSH_MAX_ROWS,
-        SINK_MAX_RETRIES);
+        TiDBOptions.LOOKUP_ASYNC_MODE,
+        TiDBOptions.JDBC_SOURCE_FLAG,
+        TiDBOptions.LOOKUP_CACHE_TTL,
+        TiDBOptions.LOOKUP_CACHE_MAX_ROWS,
+        TiDBOptions.LOOKUP_MAX_RETRIES);
   }
 
   @Override
@@ -130,12 +117,6 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
     String databaseName = config.get(DATABASE_NAME);
     // jdbc options
     JdbcOptions jdbcOptions = JdbcUtils.getJdbcOptions(context.getCatalogTable().toProperties());
-    // execution options
-    JdbcExecutionOptions jdbcExecutionOptions = JdbcExecutionOptions.builder()
-        .withBatchSize(config.get(SINK_BUFFER_FLUSH_MAX_ROWS))
-        .withBatchIntervalMs(config.get(SINK_BUFFER_FLUSH_INTERVAL).toMillis())
-        .withMaxRetries(config.get(SINK_MAX_RETRIES))
-        .build();
     // dml options
     TableSchema physicalSchema =
         TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
@@ -149,8 +130,7 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
         .withFieldNames(schema.getFieldNames())
         .withKeyFields(keyFields)
         .build();
-
-    return new JdbcDynamicTableSink(jdbcOptions, jdbcExecutionOptions, jdbcDmlOptions,
+    return new JdbcDynamicTableSink(jdbcOptions, getExecJdbcOptions(config), jdbcDmlOptions,
         physicalSchema);
   }
 

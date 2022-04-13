@@ -36,15 +36,16 @@ import org.apache.flink.util.Preconditions;
 public class LookupTableSourceHelper {
 
   private final JdbcLookupOptions lookupOptions;
+  private final AsyncLookupOptions asyncLookupOptions;
 
   public LookupTableSourceHelper(
-      JdbcLookupOptions lookupOptions) {
+      JdbcLookupOptions lookupOptions,AsyncLookupOptions asyncLookupOptions) {
     this.lookupOptions = lookupOptions;
+    this.asyncLookupOptions = asyncLookupOptions;
   }
 
   public LookupRuntimeProvider getLookupRuntimeProvider(
       ResolvedCatalogTable table, LookupContext context) {
-
     String[] keyNames = new String[context.getKeys().length];
     TableSchema physicalSchema =
         TableSchemaUtils.getPhysicalSchema(table.getSchema());
@@ -56,7 +57,6 @@ public class LookupTableSourceHelper {
       keyNames[i] = physicalSchema.getFieldNames()[innerKeyArr[0]];
     }
     final RowType rowType = (RowType) physicalSchema.toRowDataType().getLogicalType();
-    final AsyncLookupOptions asyncLookupOptions = JdbcUtils.getAsyncJdbcOptions(properties);
     if (asyncLookupOptions.isAsync()) {
       return AsyncTableFunctionProvider.of(
           new AsyncJdbcLookUpFunction(
