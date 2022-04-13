@@ -105,9 +105,9 @@ public class TiDBDynamicTableSource implements ScanTableSource, LookupTableSourc
           dialect.getSelectFromStatement(
               jdbcOptions.getTableName(), physicalSchema.getFieldNames(), new String[0]);
 
-//      if (limit >= 0) {
-//        query = String.format("%s %s", query, dialect.getLimitClause(limit));
-//      }
+      //      if (limit >= 0) {
+      //        query = String.format("%s %s", query, dialect.getLimitClause(limit));
+      //      }
       builder.setQuery(query);
       final RowType rowType = (RowType) physicalSchema.toRowDataType().getLogicalType();
       builder.setRowConverter(dialect.getRowConverter(rowType));

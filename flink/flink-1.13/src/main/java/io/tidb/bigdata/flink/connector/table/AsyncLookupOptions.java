@@ -85,7 +85,7 @@ public class AsyncLookupOptions implements Serializable {
     private boolean async = false;
 
     public void setAsync(boolean asyncMode) {
-      this.async=asyncMode;
+      this.async = asyncMode;
     }
 
     public void setMaxPoolSize(int maxPoolSize) {

@@ -155,8 +155,6 @@ public class TIKVSourceTest extends FlinkTestBase {
     String sql = String.format("SELECT * FROM `datagen` "
         + "LEFT JOIN `%s`.`%s`.`%s` FOR SYSTEM_TIME AS OF datagen.proctime AS `dim_table` "
         + "ON datagen.c1 = dim_table.c1 ", "tidb", DATABASE_NAME, tableName);
-    tableEnvironment.executeSql(
-        String.format("select * from `%s`.`%s`.`%s`", "tidb", DATABASE_NAME, tableName)).print();
     CloseableIterator<Row> iterator = tableEnvironment.executeSql(sql).collect();
     while (iterator.hasNext()) {
       Row row = iterator.next();

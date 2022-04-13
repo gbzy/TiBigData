@@ -90,10 +90,11 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
     FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
     ReadableConfig config = helper.getOptions();
     helper.validate();
-      return new TiDBDynamicTableSource(context.getCatalogTable(),
-          config.getOptional(STREAMING_SOURCE).isPresent()
-              ? ChangelogMode.all() : ChangelogMode.insertOnly(), config.get(TiDBOptions.JDBC_SOURCE_FLAG),
-           getJdbcLookupOptions(config), getAsyncJdbcOptions(config));
+    return new TiDBDynamicTableSource(context.getCatalogTable(),
+        config.getOptional(STREAMING_SOURCE).isPresent()
+            ? ChangelogMode.all() : ChangelogMode.insertOnly(),
+        config.get(TiDBOptions.JDBC_SOURCE_FLAG),
+        getJdbcLookupOptions(config), getAsyncJdbcOptions(config));
 
 
   }
