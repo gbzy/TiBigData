@@ -102,6 +102,7 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
   @Override
   public Set<ConfigOption<?>> optionalOptions() {
     return TiDBOptions.withMoreOptionalOptions(
+        TiDBOptions.LOOKUP_MAX_POOL_SIZE,
         TiDBOptions.LOOKUP_ASYNC_MODE,
         TiDBOptions.JDBC_SOURCE_FLAG,
         TiDBOptions.LOOKUP_CACHE_TTL,

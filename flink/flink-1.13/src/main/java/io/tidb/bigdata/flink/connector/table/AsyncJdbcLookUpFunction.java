@@ -65,7 +65,6 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
   private final TiDBRowConverter lookupKeyRowConverter;
   private transient JDBCPool pool;
   private transient Cache<RowData, List<RowData>> cache;
-  private transient PreparedQuery<RowSet<Row>> preparedQuery;
 
   public AsyncJdbcLookUpFunction(
       JdbcOptions options,
@@ -126,17 +125,16 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
         // configure the pool
         new PoolOptions().setMaxSize(maxPoolSize)
     );
-    this.preparedQuery = this.pool.preparedQuery(query);
   }
 
   public void eval(CompletableFuture<Collection<RowData>> result, Object... keys)
       throws SQLException {
     RowData rowData = GenericRowData.of(keys);
     // handle the failure
-    preparedQuery
+    this.pool.preparedQuery(query)
         .execute(lookupKeyRowConverter.toExternal(rowData))
         .onFailure(t -> {
-          LOG.warn(t.getMessage());
+          LOG.warn(Arrays.toString(t.getStackTrace()));
           result.complete(null);
         })
         .onSuccess(rows -> {
