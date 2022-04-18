@@ -56,7 +56,7 @@
     <gpg.keyname>fake gpg keyname</gpg.keyname>
     <gpg.skip>true</gpg.skip>
     <javadoc.skip>true</javadoc.skip>
-    <mysql.driver.scope>test</mysql.driver.scope>
+    <mysql.driver.scope>compile</mysql.driver.scope>
     <failsafe.version>3.0.0-M3</failsafe.version>
     <skipIntegrationTests>false</skipIntegrationTests>
   </properties>
