@@ -148,8 +148,8 @@ public class TIKVSourceTest extends FlinkTestBase {
         DATABASE_NAME,
         tableName);
     String insertDataSql = String.format(
-        "INSERT INTO `%s`.`%s` VALUES (1,2,3,2033,'2022-4-20','2022-4-20','test',100.032,100.032),"
-            + "(2,2,3,2033,'2022-4-20','2022-4-20','test',100.032,100.032)",
+        "INSERT INTO `%s`.`%s` VALUES (1,null,3,2033,'2022-4-20','2022-4-20','test',100.032,100.032),"
+            + "(2,null,3,2033,'2022-4-20','2022-4-20','test',100.032,100.032)",
         DATABASE_NAME, tableName);
     tiDBCatalog.sqlUpdate(createTableSql1, insertDataSql);
     tableEnvironment.registerCatalog("tidb", tiDBCatalog);
@@ -162,7 +162,7 @@ public class TIKVSourceTest extends FlinkTestBase {
       Row row = iterator.next();
       Byte c1 = (Byte) row.getField(0);
       boolean isJoin = c1.intValue() <= 2;
-      Row row1 = Row.of(c1, row.getField(1), isJoin ? c1 : null, isJoin ? 2 : null,isJoin ? 3 : null, isJoin ? 2033 : null,
+      Row row1 = Row.of(c1, row.getField(1), isJoin ? c1 : null,  null,isJoin ? 3 : null, isJoin ? 2033 : null,
           isJoin ? "2022-04-20" : null,
           isJoin ? "2022-04-20T00:00" : null, isJoin ? "test" : null, isJoin ? 100.03 : null,
           isJoin ? 100.032 : null);
