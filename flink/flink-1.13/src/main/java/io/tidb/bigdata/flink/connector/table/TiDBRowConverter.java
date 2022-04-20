@@ -53,7 +53,6 @@ import org.apache.flink.table.types.logical.TimestampType;
 public class TiDBRowConverter implements Serializable {
 
   protected final RowType rowType;
-  protected final JdbcDeserializationConverter[] toInternalConverters;
   protected final LogicalType[] fieldTypes;
 
 
@@ -63,17 +62,62 @@ public class TiDBRowConverter implements Serializable {
         rowType.getFields().stream()
             .map(RowType.RowField::getType)
             .toArray(LogicalType[]::new);
-    this.toInternalConverters = new JdbcDeserializationConverter[rowType.getFieldCount()];
-    for (int i = 0; i < rowType.getFieldCount(); i++) {
-      toInternalConverters[i] = createNullableInternalConverter(rowType.getTypeAt(i));
+  }
+
+  private Object internalConvert(LogicalType type, Row val, int pos) {
+    if (val.get(Object.class, pos) == null) {
+      return null;
+    }
+    switch (type.getTypeRoot()) {
+      case NULL:
+        return null;
+      case BOOLEAN:
+        return val.getBoolean(pos);
+      case FLOAT:
+        return val.getFloat(pos);
+      case DOUBLE:
+        return val.getDouble(pos);
+      case INTERVAL_DAY_TIME:
+      case BIGINT:
+        return val.getLong(pos);
+      case INTERVAL_YEAR_MONTH:
+      case INTEGER:
+        return val.getInteger(pos);
+      case SMALLINT:
+        return val.getShort(pos);
+      case TINYINT:
+        return val.getInteger(pos).byteValue();
+      case DECIMAL:
+        final int precision = ((DecimalType) type).getPrecision();
+        final int scale = ((DecimalType) type).getScale();
+        return DecimalData.fromBigDecimal(val.getBigDecimal(pos), precision, scale);
+      case DATE:
+        return (int) val.getLocalDate(pos).toEpochDay();
+      case TIME_WITHOUT_TIME_ZONE:
+        return (int) (val.getLocalDateTime(pos).toLocalTime().toNanoOfDay() / 1_000_000L);
+      case TIMESTAMP_WITH_TIME_ZONE:
+      case TIMESTAMP_WITHOUT_TIME_ZONE:
+        return TimestampData.fromLocalDateTime(val.getLocalDateTime(pos));
+      case CHAR:
+      case VARCHAR:
+        return StringData.fromString(val.getString(pos));
+      case BINARY:
+      case VARBINARY:
+        return val.getString(pos).getBytes();
+      case ARRAY:
+      case ROW:
+      case MAP:
+      case MULTISET:
+      case RAW:
+      default:
+        throw new UnsupportedOperationException("Unsupported type:" + type);
     }
   }
 
   public RowData toInternal(Row resultSet) throws SQLException {
     GenericRowData genericRowData = new GenericRowData(rowType.getFieldCount());
     for (int pos = 0; pos < rowType.getFieldCount(); pos++) {
-      Object field = resultSet.get(Object.class, pos);
-      genericRowData.setField(pos, toInternalConverters[pos].deserialize(field));
+      genericRowData.setField(pos, internalConvert(rowType.getTypeAt(pos), resultSet, pos));
     }
     return genericRowData;
   }
@@ -85,88 +129,6 @@ public class TiDBRowConverter implements Serializable {
       res.add(externalConvert(rowType.getTypeAt(i), rowData, i));
     }
     return Tuple.from(res);
-  }
-
-  @FunctionalInterface
-  interface JdbcDeserializationConverter extends Serializable {
-
-    /**
-     * Convert a jdbc field object of {@link ResultSet} to the internal data structure object.
-     *
-     * @param jdbcField deserialize res
-     */
-    Object deserialize(Object jdbcField) throws SQLException;
-  }
-
-  protected JdbcDeserializationConverter createNullableInternalConverter(LogicalType type) {
-    return wrapIntoNullableInternalConverter(createInternalConverter(type));
-  }
-
-  protected JdbcDeserializationConverter wrapIntoNullableInternalConverter(
-      JdbcDeserializationConverter jdbcDeserializationConverter) {
-    return val -> {
-      if (val == null) {
-        return null;
-      } else {
-        return jdbcDeserializationConverter.deserialize(val);
-      }
-    };
-  }
-
-  protected JdbcDeserializationConverter createInternalConverter(LogicalType type) {
-    switch (type.getTypeRoot()) {
-      case NULL:
-        return val -> null;
-      case BOOLEAN:
-      case FLOAT:
-      case DOUBLE:
-      case INTERVAL_YEAR_MONTH:
-      case INTERVAL_DAY_TIME:
-      case INTEGER:
-      case BIGINT:
-        return val -> val;
-      case TINYINT:
-        return val -> ((Integer) val).byteValue();
-      case SMALLINT:
-        // Converter for small type that casts value to int and then return short value,
-        // since
-        // JDBC 1.0 use int type for small values.
-        return val -> val instanceof Integer ? ((Integer) val).shortValue() : val;
-      case DECIMAL:
-        final int precision = ((DecimalType) type).getPrecision();
-        final int scale = ((DecimalType) type).getScale();
-        // using decimal(20, 0) to support db type bigint unsigned, user should define
-        // decimal(20, 0) in SQL,
-        // but other precision like decimal(30, 0) can work too from lenient consideration.
-        return val ->
-            val instanceof BigInteger
-                ? DecimalData.fromBigDecimal(
-                new BigDecimal((BigInteger) val, 0), precision, scale)
-                : DecimalData.fromBigDecimal((BigDecimal) val, precision, scale);
-      case DATE:
-        return val -> (int) (((Date) val).toLocalDate().toEpochDay());
-      case TIME_WITHOUT_TIME_ZONE:
-        return val -> (int) (((Time) val).toLocalTime().toNanoOfDay() / 1_000_000L);
-      case TIMESTAMP_WITH_TIME_ZONE:
-      case TIMESTAMP_WITHOUT_TIME_ZONE:
-        return val ->
-            val instanceof LocalDateTime
-                ? TimestampData.fromLocalDateTime((LocalDateTime) val)
-                : TimestampData.fromTimestamp((Timestamp) val);
-      case CHAR:
-      case VARCHAR:
-        return val -> StringData.fromString((String) val);
-      case BINARY:
-      case VARBINARY:
-        return val -> (byte[]) val;
-      case ARRAY:
-      case ROW:
-      case MAP:
-      case MULTISET:
-      case RAW:
-      default:
-        throw new UnsupportedOperationException("Unsupported type:" + type);
-    }
   }
 
   protected Object externalConvert(LogicalType type, RowData rowData, int pos) {

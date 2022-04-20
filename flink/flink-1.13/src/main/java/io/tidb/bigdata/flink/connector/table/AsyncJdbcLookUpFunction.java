@@ -121,7 +121,9 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
             // password
             .setPassword(passWord)
             //query timeout
-            .setQueryTimeout(10),
+            .setQueryTimeout(10)
+            //stream fetch
+            .setFetchSize(Integer.MIN_VALUE),
         // configure the pool
         new PoolOptions().setMaxSize(maxPoolSize)
     );
