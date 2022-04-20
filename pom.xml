@@ -51,12 +51,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <javadoc.skip>true</javadoc.skip>
-    <dep.mysql.jdbc.version>5.1.49</dep.mysql.jdbc.version>
+    <dep.mysql.jdbc.version>8.0.22</dep.mysql.jdbc.version>
     <dep.junit.version>4.13.1</dep.junit.version>
     <gpg.keyname>fake gpg keyname</gpg.keyname>
     <gpg.skip>true</gpg.skip>
     <javadoc.skip>true</javadoc.skip>
-    <mysql.driver.scope>compile</mysql.driver.scope>
+    <mysql.driver.scope>test</mysql.driver.scope>
     <failsafe.version>3.0.0-M3</failsafe.version>
     <skipIntegrationTests>false</skipIntegrationTests>
   </properties>

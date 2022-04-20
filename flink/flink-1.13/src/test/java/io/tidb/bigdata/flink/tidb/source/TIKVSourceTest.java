@@ -144,10 +144,12 @@ public class TIKVSourceTest extends FlinkTestBase {
     tiDBCatalog.open();
     String tableName = RandomUtils.randomString();
     String createTableSql1 = String.format(
-        "CREATE TABLE `%s`.`%s` (c1 tinyint, c2 varchar(255), PRIMARY KEY(`c1`))", DATABASE_NAME,
+        "CREATE TABLE `%s`.`%s` (c1 tinyint, tinyint_test tinyint,smallint_test smallint,bigint_test bigint,date_test date,datetime_test datetime,varchar_test varchar(36),decimal_test decimal(20,2),double_test double, PRIMARY KEY(`c1`))",
+        DATABASE_NAME,
         tableName);
     String insertDataSql = String.format(
-        "INSERT INTO `%s`.`%s` VALUES (1,'data1'),(2,'data2'),(3,'data3'),(4,'data4')",
+        "INSERT INTO `%s`.`%s` VALUES (1,2,3,2033,'2022-4-20','2022-4-20','test',100.032,100.032),"
+            + "(2,2,3,2033,'2022-4-20','2022-4-20','test',100.032,100.032)",
         DATABASE_NAME, tableName);
     tiDBCatalog.sqlUpdate(createTableSql1, insertDataSql);
     tableEnvironment.registerCatalog("tidb", tiDBCatalog);
@@ -159,12 +161,15 @@ public class TIKVSourceTest extends FlinkTestBase {
     while (iterator.hasNext()) {
       Row row = iterator.next();
       Byte c1 = (Byte) row.getField(0);
-      String c2 = String.format("data%s", c1);
-      boolean isJoin = c1.intValue() <= 4;
-      Row row1 = Row.of(c1, row.getField(1), isJoin ? c1 : null, isJoin ? c2 : null);
-      Assert.assertEquals(row, row1);
+      boolean isJoin = c1.intValue() <= 2;
+      Row row1 = Row.of(c1, row.getField(1), isJoin ? c1 : null, isJoin ? 2 : null,isJoin ? 3 : null, isJoin ? 2033 : null,
+          isJoin ? "2022-04-20" : null,
+          isJoin ? "2022-04-20T00:00" : null, isJoin ? "test" : null, isJoin ? 100.03 : null,
+          isJoin ? 100.032 : null);
+      Assert.assertEquals(row.toString(), row1.toString());
     }
   }
+
   @Test
   public void testJdbcTableSource() throws Exception {
     EnvironmentSettings settings = EnvironmentSettings.newInstance().inStreamingMode().build();
@@ -188,7 +193,7 @@ public class TIKVSourceTest extends FlinkTestBase {
         String.format("select * from `%s`.`%s`.`%s`", "tidb", DATABASE_NAME, tableName)).collect();
     while (iterator.hasNext()) {
       Row row = iterator.next();
-      Assert.assertEquals(row, Row.of(1,"data1"));
+      Assert.assertEquals(row, Row.of(1, "data1"));
     }
   }
 }

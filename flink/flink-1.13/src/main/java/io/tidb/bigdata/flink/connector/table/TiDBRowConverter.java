@@ -69,11 +69,59 @@ public class TiDBRowConverter implements Serializable {
     }
   }
 
+  private Object internalConvert(LogicalType type, Row val, int pos) {
+    switch (type.getTypeRoot()) {
+      case NULL:
+        return null;
+      case BOOLEAN:
+        return val.getBoolean(pos);
+      case FLOAT:
+        return val.getFloat(pos);
+      case DOUBLE:
+        return val.getDouble(pos);
+      case INTERVAL_DAY_TIME:
+      case BIGINT:
+        return val.getLong(pos);
+      case INTERVAL_YEAR_MONTH:
+      case INTEGER:
+        return val.getInteger(pos);
+      case SMALLINT:
+        return val.getShort(pos);
+      case TINYINT:
+        return val.getInteger(pos).byteValue();
+      case DECIMAL:
+        final int precision = ((DecimalType) type).getPrecision();
+        final int scale = ((DecimalType) type).getScale();
+        return DecimalData.fromBigDecimal(val.getBigDecimal(pos), precision, scale);
+      case DATE:
+        return (int) val.getLocalDate(pos).toEpochDay();
+      case TIME_WITHOUT_TIME_ZONE:
+        return (int) (val.getLocalDateTime(pos).toLocalTime().toNanoOfDay() / 1_000_000L);
+      case TIMESTAMP_WITH_TIME_ZONE:
+      case TIMESTAMP_WITHOUT_TIME_ZONE:
+        return TimestampData.fromLocalDateTime(val.getLocalDateTime(pos));
+      case CHAR:
+      case VARCHAR:
+        return StringData.fromString(val.getString(pos));
+      case BINARY:
+      case VARBINARY:
+        return val.getString(pos).getBytes();
+      case ARRAY:
+      case ROW:
+      case MAP:
+      case MULTISET:
+      case RAW:
+      default:
+        throw new UnsupportedOperationException("Unsupported type:" + type);
+    }
+  }
+
   public RowData toInternal(Row resultSet) throws SQLException {
     GenericRowData genericRowData = new GenericRowData(rowType.getFieldCount());
     for (int pos = 0; pos < rowType.getFieldCount(); pos++) {
-      Object field = resultSet.get(Object.class, pos);
-      genericRowData.setField(pos, toInternalConverters[pos].deserialize(field));
+      //Object field = resultSet.get(Object.class, pos);
+      //genericRowData.setField(pos, toInternalConverters[pos].deserialize(field));
+      genericRowData.setField(pos, internalConvert(rowType.getTypeAt(pos), resultSet, pos));
     }
     return genericRowData;
   }
