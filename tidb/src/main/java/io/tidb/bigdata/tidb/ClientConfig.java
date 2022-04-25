@@ -16,7 +16,6 @@
 
 package io.tidb.bigdata.tidb;
 
-import io.tidb.bigdata.jdbc.TiDBDriver;
 import io.tidb.bigdata.tidb.JdbcConnectionProviderFactory.BasicJdbcConnectionProvider;
 import java.util.Map;
 import java.util.Objects;
@@ -448,7 +447,7 @@ public final class ClientConfig {
   }
 
   public String getDriverName() {
-    return TiDBDriver.driverForUrl(databaseUrl);
+    return MYSQL_DRIVER_NAME;
   }
 
   public String getDnsSearch() {

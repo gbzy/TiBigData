@@ -21,11 +21,7 @@
   </properties>
 
   <dependencies>
-    <dependency>
-      <groupId>io.tidb</groupId>
-      <artifactId>tidb-jdbc-driver</artifactId>
-      <version>${parent.version}</version>
-    </dependency>
+
     <dependency>
       <groupId>org.tikv</groupId>
       <artifactId>tikv-client-java</artifactId>
