@@ -135,10 +135,7 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
     // handle the failure
     this.pool.preparedQuery(query)
         .execute(lookupKeyRowConverter.toExternal(rowData))
-        .onFailure(t -> {
-          LOG.warn(Arrays.toString(t.getStackTrace()));
-          result.complete(null);
-        })
+        .onFailure(Throwable::printStackTrace)
         .onSuccess(rows -> {
           ArrayList<RowData> rowsList = new ArrayList<>();
           for (Row row : rows) {
