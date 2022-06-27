@@ -23,7 +23,7 @@ import static io.tidb.bigdata.flink.tidb.TiDBBaseDynamicTableFactory.TABLE_NAME;
 import static io.tidb.bigdata.flink.tidb.TiDBBaseDynamicTableFactory.USERNAME;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-import io.tidb.bigdata.jdbc.TiDBDriver;
+import io.tidb.bigdata.tidb.ClientConfig;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -55,7 +55,6 @@ public class JdbcUtils {
     checkArgument(dbUrl.matches("jdbc:(mysql|tidb)://[^/]+:\\d+/.*"),
         "the format of database url does not match jdbc:(mysql|tidb)://host:port/.*");
     dbUrl = rewriteJdbcUrlPath(dbUrl, databaseName);
-    String driverName = TiDBDriver.driverForUrl(dbUrl);
     // jdbc options
     return JdbcOptions.builder()
         .setDBUrl(dbUrl)
@@ -63,7 +62,7 @@ public class JdbcUtils {
         .setUsername(properties.get(USERNAME.key()))
         .setPassword(properties.get(PASSWORD.key()))
         .setDialect(new MySQLDialect())
-        .setDriverName(driverName)
+        .setDriverName(ClientConfig.MYSQL_DRIVER_NAME)
         .build();
   }
 
