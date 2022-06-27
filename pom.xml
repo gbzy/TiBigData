@@ -162,7 +162,7 @@
     <module>ticdc</module>
     <module>flink</module>
     <module>jdbc</module>
-    <module>mapreduce</module>
+<!--    <module>mapreduce</module>-->
     <module>bigdata-test</module>
     <module>test</module>
   </modules>
