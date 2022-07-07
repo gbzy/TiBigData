@@ -108,7 +108,8 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
         TiDBOptions.JDBC_SOURCE_FLAG,
         TiDBOptions.LOOKUP_CACHE_TTL,
         TiDBOptions.LOOKUP_CACHE_MAX_ROWS,
-        TiDBOptions.LOOKUP_MAX_RETRIES);
+        TiDBOptions.LOOKUP_MAX_RETRIES,
+        TiDBOptions.SNAPSHOT_TIMESTAMP);
   }
 
   @Override

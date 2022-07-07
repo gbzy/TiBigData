@@ -89,7 +89,7 @@ public class TIKVSourceTest extends FlinkTestBase {
       String createCatalogSql = format("CREATE CATALOG `tidb` WITH ( %s )",
           TableUtils.toSqlProperties(properties));
       tableEnvironment.executeSql(createCatalogSql);
-      String queryTableSql = format("SELECT * FROM `%s`.`%s`.`%s`", "tidb", DATABASE_NAME,
+      String queryTableSql = format("SELECT * FROM `%s`.`%s`.`%s` where c1>0", "tidb", DATABASE_NAME,
           tableName);
       CloseableIterator<Row> iterator = tableEnvironment.executeSql(queryTableSql).collect();
       while (iterator.hasNext()) {
@@ -181,16 +181,16 @@ public class TIKVSourceTest extends FlinkTestBase {
     tiDBCatalog.open();
     String tableName = RandomUtils.randomString();
     String createTableSql1 = String.format(
-        "CREATE TABLE `%s`.`%s` (c1 int, c2 varchar(255), PRIMARY KEY(`c1`))", DATABASE_NAME,
+        "CREATE TABLE `%s`.`%s` (c1 int, c2 varchar(255),c3 datetime, PRIMARY KEY(`c1`))", DATABASE_NAME,
         tableName);
     String insertDataSql = String.format(
-        "INSERT INTO `%s`.`%s` VALUES (1,'data1')",
+        "INSERT INTO `%s`.`%s` VALUES (1,'data1','2022-4-1')",
         DATABASE_NAME, tableName);
     tiDBCatalog.sqlUpdate(createTableSql1, insertDataSql);
     tableEnvironment.registerCatalog("tidb", tiDBCatalog);
     tableEnvironment.executeSql(CREATE_DATAGEN_TABLE_SQL);
     CloseableIterator<Row> iterator = tableEnvironment.executeSql(
-        String.format("select * from `%s`.`%s`.`%s`", "tidb", DATABASE_NAME, tableName)).collect();
+        String.format("select c1,c2 from `%s`.`%s`.`%s`", "tidb", DATABASE_NAME, tableName)).collect();
     while (iterator.hasNext()) {
       Row row = iterator.next();
       Assert.assertEquals(row, Row.of(1, "data1"));

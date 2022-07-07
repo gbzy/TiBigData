@@ -66,7 +66,7 @@ public class SnapshotSource implements Source<RowData, TiDBSourceSplit, TiDBSour
     this.schema = schema;
     this.expression = expression;
     this.limit = limit;
-    this.timestamp = getOptionalVersion().orElseGet(() -> getOptionalTimestamp().orElse(null));
+    this.timestamp = getOptionalVersion().orElseGet(() -> getOptionalTimestamp().orElse(new TiTimestamp(System.currentTimeMillis(),0)));
   }
 
   @Override

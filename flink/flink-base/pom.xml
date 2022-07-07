@@ -15,7 +15,7 @@
   <url>https://github.com/pingcap-incubator/TiBigData</url>
 
   <properties>
-    <dep.flink-base.version>1.11.0</dep.flink-base.version>
+    <dep.flink-base.version>1.13.2</dep.flink-base.version>
     <flink-base.scope>provided</flink-base.scope>
   </properties>
 
