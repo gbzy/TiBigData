@@ -62,7 +62,7 @@ public class JdbcUtils {
         .setUsername(properties.get(USERNAME.key()))
         .setPassword(properties.get(PASSWORD.key()))
         .setDialect(new MySQLDialect())
-        .setDriverName(ClientConfig.MYSQL_DRIVER_NAME)
+        .setDriverName(ClientConfig.determineDriverName())
         .build();
   }
 

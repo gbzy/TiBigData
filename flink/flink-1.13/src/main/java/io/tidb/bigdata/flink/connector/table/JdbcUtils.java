@@ -59,7 +59,7 @@ public class JdbcUtils {
     checkArgument(dbUrl.matches("jdbc:(mysql|tidb)://[^/]+:\\d+/.*"),
         "the format of database url does not match jdbc:(mysql|tidb)://host:port/.*");
     dbUrl = rewriteJdbcUrlPath(dbUrl, databaseName);
-    String driverName = ClientConfig.MYSQL_DRIVER_NAME;
+    String driverName = ClientConfig.determineDriverName();
     // jdbc options
     return JdbcOptions.builder()
         .setDBUrl(dbUrl)
