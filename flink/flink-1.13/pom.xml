@@ -22,12 +22,6 @@
   </properties>
 
   <dependencies>
-    <!-- flink base -->
-    <dependency>
-      <groupId>io.tidb</groupId>
-      <artifactId>flink-tidb-connector-base</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <!-- vertx jdbc -->
     <dependency>
       <groupId>io.vertx</groupId>
@@ -40,12 +34,6 @@
       <version>${dep.agroal.version}</version>
     </dependency>
 
-    <!-- TiCDC parser -->
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>ticdc</artifactId>
-      <version>${project.version}</version>
-    </dependency>
     <!-- flink -->
     <dependency>
       <groupId>org.apache.flink</groupId>
@@ -87,7 +75,6 @@
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-connector-jdbc_${dep.scala.binary.version}</artifactId>
       <version>${dep.flink.version}</version>
-      <scope>${flink.jdbc.connector.scope}</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.flink</groupId>

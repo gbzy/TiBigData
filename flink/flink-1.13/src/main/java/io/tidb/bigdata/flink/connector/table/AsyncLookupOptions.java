@@ -18,8 +18,6 @@ package io.tidb.bigdata.flink.connector.table;
 
 import java.io.Serializable;
 import java.util.Objects;
-import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
-import org.apache.flink.connector.jdbc.internal.options.JdbcOptions.Builder;
 
 
 public class AsyncLookupOptions implements Serializable {

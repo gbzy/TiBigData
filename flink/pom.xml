@@ -18,7 +18,6 @@
     <dep.scala.binary.version>2.11</dep.scala.binary.version>
     <dep.jackson.version>2.11.0</dep.jackson.version>
     <dep.apache.commons.version>1.9.4</dep.apache.commons.version>
-    <flink.jdbc.connector.scope>provided</flink.jdbc.connector.scope>
     <flink.kafka.connector.scope>provided</flink.kafka.connector.scope>
     <flink.scope>provided</flink.scope>
   </properties>

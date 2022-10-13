@@ -16,29 +16,26 @@
 
 package io.tidb.bigdata.flink.connector.table;
 
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.DATABASE_NAME;
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.STREAMING_SOURCE;
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.WRITE_MODE;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.DATABASE_NAME;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.SINK_BUFFER_FLUSH_MAX_ROWS;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.SINK_MAX_RETRIES;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.STREAMING_SOURCE;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.UPDATE_COLUMNS;
 
-import com.google.common.collect.ImmutableSet;
-import io.tidb.bigdata.flink.connector.source.TiDBOptions;
 import io.tidb.bigdata.flink.connector.table.AsyncLookupOptions.Builder;
-import io.tidb.bigdata.tidb.ClientConfig;
-import io.tidb.bigdata.tidb.ClientSession;
-import io.tidb.bigdata.tidb.TiDBWriteMode;
-import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.flink.configuration.ConfigOption;
-import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.jdbc.JdbcExecutionOptions;
-import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
-import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
 import org.apache.flink.connector.jdbc.internal.options.JdbcDmlOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
 import org.apache.flink.connector.jdbc.table.JdbcDynamicTableSink;
-import org.apache.flink.connector.jdbc.table.JdbcDynamicTableSource;
+import org.apache.flink.table.api.TableColumn;
+import org.apache.flink.table.api.TableColumn.MetadataColumn;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.connector.ChangelogMode;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
@@ -68,10 +65,12 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
   }
 
   private static JdbcExecutionOptions getExecJdbcOptions(ReadableConfig readableConfig) {
-    JdbcExecutionOptions.Builder builder = JdbcExecutionOptions.builder()
-        .withBatchIntervalMs(readableConfig.get(TiDBOptions.SINK_BUFFER_FLUSH_INTERVAL).toMillis())
-        .withBatchSize(readableConfig.get(TiDBOptions.SINK_MAX_RETRIES))
-        .withBatchSize(readableConfig.get(TiDBOptions.SINK_BUFFER_FLUSH_MAX_ROWS));
+    JdbcExecutionOptions.Builder builder =
+        JdbcExecutionOptions.builder()
+            .withBatchIntervalMs(
+                readableConfig.get(TiDBOptions.SINK_BUFFER_FLUSH_INTERVAL).toMillis())
+            .withBatchSize(readableConfig.get(SINK_MAX_RETRIES))
+            .withBatchSize(readableConfig.get(SINK_BUFFER_FLUSH_MAX_ROWS));
     return builder.build();
   }
 
@@ -90,32 +89,38 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
     FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
     ReadableConfig config = helper.getOptions();
     helper.validate();
-    return new TiDBDynamicTableSource(context.getCatalogTable(),
+    return new TiDBDynamicTableSource(
+        context.getCatalogTable(),
         config.getOptional(STREAMING_SOURCE).isPresent()
-            ? ChangelogMode.all() : ChangelogMode.insertOnly(),
+            ? ChangelogMode.all()
+            : ChangelogMode.insertOnly(),
         config.get(TiDBOptions.JDBC_SOURCE_FLAG),
-        getJdbcLookupOptions(config), getAsyncJdbcOptions(config));
-
-
+        getJdbcLookupOptions(config),
+        getAsyncJdbcOptions(config));
   }
 
   @Override
   public Set<ConfigOption<?>> optionalOptions() {
     return TiDBOptions.withMoreOptionalOptions(
         TiDBOptions.LOOKUP_MAX_POOL_SIZE,
-        TiDBOptions.SINK_BUFFER_FLUSH_MAX_ROWS,
+        UPDATE_COLUMNS,
+        SINK_BUFFER_FLUSH_MAX_ROWS,
         TiDBOptions.LOOKUP_ASYNC_MODE,
         TiDBOptions.JDBC_SOURCE_FLAG,
         TiDBOptions.LOOKUP_CACHE_TTL,
         TiDBOptions.LOOKUP_CACHE_MAX_ROWS,
-        TiDBOptions.LOOKUP_MAX_RETRIES,
-        TiDBOptions.SNAPSHOT_TIMESTAMP);
+        TiDBOptions.LOOKUP_MAX_RETRIES);
   }
 
   @Override
   public DynamicTableSink createDynamicTableSink(Context context) {
-    FactoryUtil.TableFactoryHelper helper = FactoryUtil
-        .createTableFactoryHelper(this, context);
+    // Metadata columns is not real columns, should not be created for sink.
+    if (context.getCatalogTable().getSchema().getTableColumns().stream()
+        .anyMatch(column -> column instanceof MetadataColumn)) {
+      throw new IllegalStateException("Metadata columns is not supported for sink");
+    }
+
+    FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
     ReadableConfig config = helper.getOptions();
     TableSchema schema = context.getCatalogTable().getSchema();
     String databaseName = config.get(DATABASE_NAME);
@@ -124,37 +129,57 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
     // dml options
     TableSchema physicalSchema =
         TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());
+
     String[] keyFields =
-        schema.getPrimaryKey()
-            .map(pk -> pk.getColumns().toArray(new String[0]))
-            .orElse(null);
-    JdbcDmlOptions jdbcDmlOptions = JdbcDmlOptions.builder()
-        .withTableName(jdbcOptions.getTableName())
-        .withDialect(jdbcOptions.getDialect())
-        .withFieldNames(schema.getFieldNames())
-        .withKeyFields(keyFields)
-        .build();
-    return new JdbcDynamicTableSink(jdbcOptions, getExecJdbcOptions(config), jdbcDmlOptions,
-        physicalSchema);
+        schema.getPrimaryKey().map(pk -> pk.getColumns().toArray(new String[0])).orElse(null);
+    JdbcDmlOptions jdbcDmlOptions =
+        JdbcDmlOptions.builder()
+            .withTableName(jdbcOptions.getTableName())
+            .withDialect(jdbcOptions.getDialect())
+            .withFieldNames(schema.getFieldNames())
+            .withKeyFields(keyFields)
+            .build();
+    JdbcExecutionOptions jdbcExecutionOptions = getExecJdbcOptions(config);
+    String updateColumnsOption = config.get(UPDATE_COLUMNS);
+    if (updateColumnsOption == null) {
+      return new JdbcDynamicTableSink(
+          jdbcOptions, getExecJdbcOptions(config), jdbcDmlOptions, physicalSchema);
+    } else {
+      String[] updateColumnNames = updateColumnsOption.split("\\s*,\\s*");
+      List<TableColumn> updateColumns = new ArrayList<>();
+      int[] updateColumnIndexes =
+          getUpdateColumnAndIndexes(
+              schema, databaseName, jdbcOptions, updateColumnNames, updateColumns);
+      return new InsertOnDuplicateUpdateSink(
+          jdbcOptions,
+          jdbcExecutionOptions,
+          jdbcDmlOptions,
+          schema,
+          updateColumns,
+          updateColumnIndexes);
+    }
   }
 
-  private String[] getKeyFields(Context context, ReadableConfig config, String databaseName,
-      String tableName) {
-    // check write mode
-    TiDBWriteMode writeMode = TiDBWriteMode.fromString(config.get(WRITE_MODE));
-    String[] keyFields = null;
-    if (writeMode == TiDBWriteMode.UPSERT) {
-      try (ClientSession clientSession = ClientSession.create(
-          new ClientConfig(context.getCatalogTable().toProperties()))) {
-        Set<String> set = ImmutableSet.<String>builder()
-            .addAll(clientSession.getUniqueKeyColumns(databaseName, tableName))
-            .addAll(clientSession.getPrimaryKeyColumns(databaseName, tableName))
-            .build();
-        keyFields = set.size() == 0 ? null : set.toArray(new String[0]);
-      } catch (Exception e) {
-        throw new IllegalStateException(e);
+  private int[] getUpdateColumnAndIndexes(
+      TableSchema schema,
+      String databaseName,
+      JdbcOptions jdbcOptions,
+      String[] updateColumnNames,
+      List<TableColumn> updateColumns) {
+    int[] index = new int[updateColumnNames.length];
+    for (int i = 0; i < updateColumnNames.length; i++) {
+      String updateColumnName = updateColumnNames[i];
+      Optional<TableColumn> tableColumn = schema.getTableColumn(updateColumnName);
+      if (!tableColumn.isPresent()) {
+        throw new IllegalStateException(
+            String.format(
+                "Unknown updateColumn %s in table %s.%s",
+                updateColumnName, databaseName, jdbcOptions.getTableName()));
+      } else {
+        updateColumns.add(tableColumn.get());
+        index[i] = schema.getTableColumns().indexOf(tableColumn.get());
       }
     }
-    return keyFields;
+    return index;
   }
 }

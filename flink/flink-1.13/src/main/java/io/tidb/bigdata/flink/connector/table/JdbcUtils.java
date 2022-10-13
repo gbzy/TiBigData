@@ -16,15 +16,14 @@
 
 package io.tidb.bigdata.flink.connector.table;
 
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.DATABASE_NAME;
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.DATABASE_URL;
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.PASSWORD;
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.TABLE_NAME;
-import static io.tidb.bigdata.flink.connector.source.TiDBOptions.USERNAME;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.DATABASE_NAME;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.DATABASE_URL;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.PASSWORD;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.TABLE_NAME;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.USERNAME;
 import static java.lang.String.format;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-import io.tidb.bigdata.tidb.ClientConfig;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -59,7 +58,7 @@ public class JdbcUtils {
     checkArgument(dbUrl.matches("jdbc:(mysql|tidb)://[^/]+:\\d+/.*"),
         "the format of database url does not match jdbc:(mysql|tidb)://host:port/.*");
     dbUrl = rewriteJdbcUrlPath(dbUrl, databaseName);
-    String driverName = ClientConfig.MYSQL_DRIVER_NAME;
+    String driverName = TiDBOptions.MYSQL_DRIVER_NAME;
     // jdbc options
     return JdbcOptions.builder()
         .setDBUrl(dbUrl)

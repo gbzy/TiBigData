@@ -16,25 +16,21 @@ import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.source.ScanTableSource.ScanContext;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.RowType;
-import org.tikv.common.expression.Expression;
 
 public class JdbcSourceBuilder {
   private final ResolvedCatalogTable table;
   private final ScanContext scanContext;
   private final int[] projectedFields;
-  private final Expression expression;
   private final Integer limit;
 
   public JdbcSourceBuilder(
       ResolvedCatalogTable table,
       ScanContext scanContext,
       int[] projectedFields,
-      Expression expression,
       Integer limit) {
     this.table = table;
     this.scanContext = scanContext;
     this.projectedFields = projectedFields;
-    this.expression = expression;
     this.limit = limit;
   }
 
