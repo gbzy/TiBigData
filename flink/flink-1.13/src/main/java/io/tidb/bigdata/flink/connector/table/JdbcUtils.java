@@ -19,6 +19,7 @@ package io.tidb.bigdata.flink.connector.table;
 import static io.tidb.bigdata.flink.connector.table.TiDBOptions.DATABASE_NAME;
 import static io.tidb.bigdata.flink.connector.table.TiDBOptions.DATABASE_URL;
 import static io.tidb.bigdata.flink.connector.table.TiDBOptions.PASSWORD;
+import static io.tidb.bigdata.flink.connector.table.TiDBOptions.SINK_PARALLELISM;
 import static io.tidb.bigdata.flink.connector.table.TiDBOptions.TABLE_NAME;
 import static io.tidb.bigdata.flink.connector.table.TiDBOptions.USERNAME;
 import static java.lang.String.format;
@@ -29,9 +30,9 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.connector.jdbc.dialect.MySQLDialect;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
-
 
 public class JdbcUtils {
 
@@ -46,7 +47,8 @@ public class JdbcUtils {
     String host = uri.getHost();
     int port = uri.getPort();
     String path = uri.getPath();
-    return url.replace(String.format("jdbc:%s://%s:%d%s", scheme, host, port, path),
+    return url.replace(
+        String.format("jdbc:%s://%s:%d%s", scheme, host, port, path),
         String.format("jdbc:%s://%s:%d/%s", scheme, host, port, database));
   }
 
@@ -55,10 +57,11 @@ public class JdbcUtils {
     String dbUrl = properties.get(DATABASE_URL.key());
     String databaseName = properties.get(DATABASE_NAME.key());
     String tableName = properties.get(TABLE_NAME.key());
-    checkArgument(dbUrl.matches("jdbc:(mysql|tidb)://[^/]+:\\d+/.*"),
+    checkArgument(
+        dbUrl.matches("jdbc:(mysql|tidb)://[^/]+:\\d+/.*"),
         "the format of database url does not match jdbc:(mysql|tidb)://host:port/.*");
     dbUrl = rewriteJdbcUrlPath(dbUrl, databaseName);
-    String driverName = TiDBOptions.MYSQL_DRIVER_NAME;
+    String driverName = TiDBOptions.determineDriverName();
     // jdbc options
     return JdbcOptions.builder()
         .setDBUrl(dbUrl)
@@ -70,6 +73,28 @@ public class JdbcUtils {
         .build();
   }
 
+  public static JdbcOptions getJdbcOptions(ReadableConfig readableConfig) {
+    // replace database name in database url
+
+    String dbUrl = readableConfig.get(DATABASE_URL);
+    String databaseName = readableConfig.get(DATABASE_NAME);
+    String tableName = readableConfig.get(TABLE_NAME);
+    checkArgument(
+        dbUrl.matches("jdbc:(mysql|tidb)://[^/]+:\\d+/.*"),
+        "the format of database url does not match jdbc:(mysql|tidb)://host:port/.*");
+    dbUrl = rewriteJdbcUrlPath(dbUrl, databaseName);
+    String driverName = TiDBOptions.determineDriverName();
+    // jdbc options
+    return JdbcOptions.builder()
+        .setDBUrl(dbUrl)
+        .setTableName(tableName)
+        .setUsername(readableConfig.get(USERNAME))
+        .setPassword(readableConfig.get(PASSWORD))
+        .setDialect(new MySQLDialect())
+        .setDriverName(driverName)
+        .setParallelism(readableConfig.get(SINK_PARALLELISM))
+        .build();
+  }
 
   public static String quoteIdentifier(String identifier) {
     return "`" + identifier + "`";
@@ -91,6 +116,4 @@ public class JdbcUtils {
         + quoteIdentifier(tableName)
         + (conditionFields.length > 0 ? " WHERE " + fieldExpressions : "");
   }
-
-
 }

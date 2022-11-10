@@ -40,7 +40,9 @@ public class TiDBOptions {
     return optional(key, null);
   }
 
-  public static final String MYSQL_DRIVER_NAME = "com.mysql.jdbc.Driver";
+  public static final String OLD_MYSQL_DRIVER_NAME = "com.mysql.jdbc.Driver";
+  public static final String NEW_MYSQL_DRIVER_NAME = "com.mysql.cj.jdbc.Driver";
+
   public static final ConfigOption<String> DATABASE_URL = required("tidb.database.url");
 
   public static final ConfigOption<String> USERNAME = required("tidb.username");
@@ -60,8 +62,11 @@ public class TiDBOptions {
   // jdbc options
   public static final ConfigOption<Boolean> JDBC_SOURCE_FLAG =
       ConfigOptions.key("jdbc.source.flag").booleanType().defaultValue(false);
+
   public static final ConfigOption<Integer> SINK_BUFFER_FLUSH_MAX_ROWS =
       optional("sink.buffer-flush.max-rows", 100);
+  public static final ConfigOption<Integer> SINK_PARALLELISM =
+      ConfigOptions.key("sink.parallelism").intType().noDefaultValue();
   public static final ConfigOption<Duration> SINK_BUFFER_FLUSH_INTERVAL =
       ConfigOptions.key("sink.buffer-flush.interval")
           .durationType()
@@ -122,6 +127,15 @@ public class TiDBOptions {
 
   public static Set<ConfigOption<?>> optionalOptions() {
     return withMoreOptionalOptions();
+  }
+
+  public static String determineDriverName() {
+    try {
+      Class.forName(NEW_MYSQL_DRIVER_NAME);
+      return NEW_MYSQL_DRIVER_NAME;
+    } catch (ClassNotFoundException e) {
+      return OLD_MYSQL_DRIVER_NAME;
+    }
   }
 
   public static Set<ConfigOption<?>> withMoreOptionalOptions(ConfigOption<?>... options) {

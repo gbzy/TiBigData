@@ -125,7 +125,7 @@ public class TiDBDynamicTableFactory implements DynamicTableSourceFactory, Dynam
     TableSchema schema = context.getCatalogTable().getSchema();
     String databaseName = config.get(DATABASE_NAME);
     // jdbc options
-    JdbcOptions jdbcOptions = JdbcUtils.getJdbcOptions(context.getCatalogTable().toProperties());
+    JdbcOptions jdbcOptions = JdbcUtils.getJdbcOptions(config);
     // dml options
     TableSchema physicalSchema =
         TableSchemaUtils.getPhysicalSchema(context.getCatalogTable().getSchema());

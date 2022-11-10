@@ -18,6 +18,8 @@ package io.tidb.bigdata.flink.tidb.source;
 
 import io.tidb.bigdata.flink.tidb.FlinkTestBase;
 import io.tidb.bigdata.test.IntegrationTest;
+import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.EnvironmentSettings;
@@ -231,14 +233,31 @@ public class TIKVSourceTest extends FlinkTestBase {
     tableEnvironment.executeSql(TEST_SINK);
     tableEnvironment
         .executeSql(
-            "insert into test_sink /*+ OPTIONS('tidb.sink.update-columns'='id, name') */  select a.*,0 from InputTable a ")
+            "insert into test_sink /*+ OPTIONS('sink.parallelism'='2') */   select a.*,0 from InputTable a ")
         .print();
   }
 
   @Test
-  public void testJdbcConnection() throws Exception {
-  }
+  public void testJdbcConnection() throws Exception {}
+
   @Test
   public void testArrayList() throws Exception {
+    CompletableFuture<Integer> a = new CompletableFuture<>();
+    a.thenAcceptAsync(
+        x -> {
+          try {
+            Thread.sleep(1000);
+            System.out.println(x);
+
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+        });
+    Random random = new Random();
+    for (int i = 0; i < 20; i++) {
+      a.complete(random.nextInt());
+    }
+    System.out.println("start job");
+    Thread.sleep(100000);
   }
 }
