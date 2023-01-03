@@ -114,7 +114,7 @@ public class TiDBRowConverter implements Serializable {
     }
   }
 
-  public RowData toInternal(Row resultSet) throws SQLException {
+  public RowData toInternal(Row resultSet)  {
     GenericRowData genericRowData = new GenericRowData(rowType.getFieldCount());
     for (int pos = 0; pos < rowType.getFieldCount(); pos++) {
       genericRowData.setField(pos, internalConvert(rowType.getTypeAt(pos), resultSet, pos));
@@ -123,7 +123,7 @@ public class TiDBRowConverter implements Serializable {
   }
 
 
-  public Tuple toExternal(RowData rowData) throws SQLException {
+  public Tuple toExternal(RowData rowData) {
     ArrayList<Object> res = new ArrayList<>();
     for (int i = 0; i < rowType.getFieldCount(); i++) {
       res.add(externalConvert(rowType.getTypeAt(i), rowData, i));

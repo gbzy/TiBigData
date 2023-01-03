@@ -23,20 +23,14 @@ import io.vertx.core.Vertx;
 import io.vertx.jdbcclient.JDBCConnectOptions;
 import io.vertx.jdbcclient.JDBCPool;
 import io.vertx.sqlclient.PoolOptions;
-import io.vertx.sqlclient.PreparedQuery;
 import io.vertx.sqlclient.Row;
-import io.vertx.sqlclient.RowSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.flink.connector.jdbc.dialect.JdbcDialect;
-import org.apache.flink.connector.jdbc.dialect.JdbcDialects;
-import org.apache.flink.connector.jdbc.internal.options.JdbcLookupOptions;
 import org.apache.flink.connector.jdbc.internal.options.JdbcOptions;
-import org.apache.flink.connector.jdbc.table.JdbcRowDataLookupFunction;
 import org.apache.flink.shaded.guava18.com.google.common.cache.Cache;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
@@ -47,7 +41,6 @@ import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 
 public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
 
@@ -86,10 +79,7 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
             .map(
                 s -> {
                   checkArgument(
-                      nameList.contains(s),
-                      "keyName %s can't find in fieldNames %s.",
-                      s,
-                      nameList);
+                      nameList.contains(s), "keyName %s can't find in fieldNames %s.", s, nameList);
                   return fieldTypes[nameList.indexOf(s)];
                 })
             .toArray(DataType[]::new);
@@ -101,9 +91,7 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
     this.lookupKeyRowConverter =
         new TiDBRowConverter(
             RowType.of(
-                Arrays.stream(keyTypes)
-                    .map(DataType::getLogicalType)
-                    .toArray(LogicalType[]::new)));
+                Arrays.stream(keyTypes).map(DataType::getLogicalType).toArray(LogicalType[]::new)));
   }
 
   @Override
@@ -112,44 +100,41 @@ public class AsyncJdbcLookUpFunction extends AsyncTableFunction<RowData> {
     String userName = options.getUsername().isPresent() ? options.getUsername().get() : "";
     String passWord = options.getPassword().isPresent() ? options.getPassword().get() : "";
     LOG.info(options.getDbURL());
-    this.pool = JDBCPool.pool(Vertx.vertx(),
-        new JDBCConnectOptions()
-            // H2 connection string
-            .setJdbcUrl(options.getDbURL())
-            // username
-            .setUser(userName)
-            // password
-            .setPassword(passWord)
-            //query timeout
-            .setQueryTimeout(10)
-            //stream fetch
-            .setFetchSize(Integer.MIN_VALUE),
-        // configure the pool
-        new PoolOptions().setMaxSize(maxPoolSize)
-    );
+    this.pool =
+        JDBCPool.pool(
+            Vertx.vertx(),
+            new JDBCConnectOptions()
+                // H2 connection string
+                .setJdbcUrl(options.getDbURL())
+                // username
+                .setUser(userName)
+                // password
+                .setPassword(passWord)
+                // query timeout
+                .setQueryTimeout(10)
+                // stream fetch
+                .setFetchSize(Integer.MIN_VALUE),
+            // configure the pool
+            new PoolOptions().setMaxSize(maxPoolSize));
   }
 
   public void eval(CompletableFuture<Collection<RowData>> result, Object... keys)
       throws SQLException {
     RowData rowData = GenericRowData.of(keys);
     // handle the failure
-    this.pool.preparedQuery(query)
+    this.pool
+        .preparedQuery(query)
         .execute(lookupKeyRowConverter.toExternal(rowData))
-        .onFailure(Throwable::printStackTrace)
-        .onSuccess(rows -> {
-          ArrayList<RowData> rowsList = new ArrayList<>();
-          for (Row row : rows) {
-            RowData r = null;
-            try {
-              r = jdbcRowConverter.toInternal(row);
-            } catch (SQLException troubles) {
-              troubles.printStackTrace();
-            }
-            rowsList.add(r);
-          }
-          result.complete(rowsList);
-        });
-
+        .onFailure(result::completeExceptionally)
+        .onSuccess(
+            rows -> {
+              ArrayList<RowData> rowsList = new ArrayList<>();
+              for (Row row : rows) {
+                RowData r = jdbcRowConverter.toInternal(row);
+                rowsList.add(r);
+              }
+              result.complete(rowsList);
+            });
   }
 
   @Override
